@@ -22,6 +22,18 @@
   --font-mono:    'DM Mono', monospace;
 }
 
+
+/* ── Light mode ──────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:        #f4f5f7;
+  --surface:   #ffffff;
+  --surface2:  #f0f1f3;
+  --border:    #e2e4e9;
+  --border2:   #d0d3db;
+  --text:      #111318;
+  --muted:     #6b7280;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {

@@ -23,8 +23,8 @@ function Stars({ n }: { n: number }) {
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
-function Topbar({ scanning, onScan, lastScan, supaConnected }:
-  { scanning: boolean; onScan: () => void; lastScan: string; supaConnected: boolean }) {
+function Topbar({ scanning, onScan, lastScan, supaConnected, onReconnect, darkMode, onToggleTheme }:
+  { scanning: boolean; onScan: () => void; lastScan: string; supaConnected: boolean; onReconnect: () => void; darkMode: boolean; onToggleTheme: () => void }) {
   const [time, setTime] = useState('')
   useEffect(() => {
     const t = setInterval(() => setTime(new Date().toLocaleTimeString('de-DE')), 1000)
@@ -41,12 +41,19 @@ function Topbar({ scanning, onScan, lastScan, supaConnected }:
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: supaConnected ? 'var(--green)' : 'var(--red)' }}>
-          <div className={supaConnected ? 'pulse-dot' : ''} style={{ width: 7, height: 7, borderRadius: '50%', background: supaConnected ? 'var(--green)' : 'var(--red)' }} />
-          supabase {supaConnected ? 'connected' : 'offline'}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          onClick={supaConnected ? undefined : onReconnect}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: supaConnected ? 'var(--green)' : 'var(--red)', background: 'none', border: 'none', cursor: supaConnected ? 'default' : 'pointer', padding: 0 }}
+          title={supaConnected ? 'Connected' : 'Kliknij żeby połączyć'}
+        >
+          <div className={supaConnected ? 'pulse-dot' : ''} style={{ width: 7, height: 7, borderRadius: '50%', background: supaConnected ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
+          supabase {supaConnected ? 'connected' : 'offline – kliknij'}
+        </button>
         {lastScan && <div style={{ fontSize: 11, color: 'var(--muted)' }}>synced: {lastScan}</div>}
+        <button className="btn btn-ghost" onClick={onToggleTheme} style={{ padding: '5px 8px', fontSize: 13 }} title="Tryb dzienny/nocny">
+          {darkMode ? '☀️' : '🌙'}
+        </button>
         <button className="btn btn-accent" onClick={onScan} disabled={scanning} style={{ opacity: scanning ? 0.7 : 1 }}>
           <span className={scanning ? 'spinning' : ''} style={{ display: 'inline-block' }}>⟳</span>
           {scanning ? 'Scanning...' : 'Scan Now'}
@@ -403,6 +410,11 @@ export default function App() {
   const [supaConnected, setSupaConnected] = useState(false)
   const [contentDeal, setContentDeal] = useState<Deal | null>(null)
   const [toast, setToast] = useState('')
+  const [darkMode, setDarkMode] = useState(true)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -464,7 +476,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <Topbar scanning={scanning} onScan={handleScan} lastScan={lastScan} supaConnected={supaConnected} />
+      <Topbar scanning={scanning} onScan={handleScan} lastScan={lastScan} supaConnected={supaConnected} onReconnect={loadDeals} darkMode={darkMode} onToggleTheme={() => setDarkMode(d => !d)} />
 
       {/* Tabs */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 4, height: 40 }}>
