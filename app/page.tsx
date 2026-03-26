@@ -131,10 +131,12 @@ function ContentModal({ deal, onClose }: { deal: Deal; onClose: () => void }) {
 }
 
 // ── Deals Tab ─────────────────────────────────────────────────────────────────
-function DealsTab({ deals, onStatusChange, onGenerateContent }: {
+function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDeleteAll }: {
   deals: Deal[]
   onStatusChange: (id: string, status: Deal['status']) => void
   onGenerateContent: (deal: Deal) => void
+  onDelete: (id: string) => void
+  onDeleteAll: (ids: string[]) => void
 }) {
   const [catFilter, setCatFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -170,7 +172,15 @@ function DealsTab({ deals, onStatusChange, onGenerateContent }: {
           <option value={4}>4⭐+</option>
           <option value={5}>5⭐ tylko</option>
         </select>
-        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>{filtered.length} dealów</div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>{filtered.length} dealów</span>
+          {filtered.length > 0 && (
+            <button className="btn btn-red" style={{ fontSize: 11, padding: '3px 10px' }}
+              onClick={() => { if (confirm(`Usunąć wszystkie ${filtered.length} deale?`)) onDeleteAll(filtered.map(d => d.id)) }}>
+              🗑️ Usuń wszystkie
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -220,7 +230,7 @@ function DealsTab({ deals, onStatusChange, onGenerateContent }: {
                       <button className="btn btn-blue" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onGenerateContent(deal)} title="Generuj content">✦</button>
                       {deal.status !== 'Do publikacji' && <button className="btn btn-green" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Do publikacji')} title="Do kolejki">+</button>}
                       {deal.status !== 'Opublikowany' && <button className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Opublikowany')} title="Opublikowany">✓</button>}
-                      {deal.status !== 'Odrzucony' && <button className="btn btn-red" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Odrzucony')} title="Odrzuć">✕</button>}
+                      <button className="btn btn-red" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onDelete(deal.id)} title="Usuń deal">🗑</button>
                     </div>
                   </td>
                 </tr>
@@ -464,6 +474,24 @@ export default function App() {
     } catch { showToast('❌ Błąd zapisu'); loadDeals() }
   }
 
+  const handleDelete = async (id: string) => {
+    setDeals(prev => prev.filter(d => d.id !== id))
+    try {
+      await fetch('/api/deals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      showToast('🗑️ Deal usunięty')
+    } catch { showToast('❌ Błąd usuwania'); loadDeals() }
+  }
+
+  const handleDeleteAll = async (ids: string[]) => {
+    setDeals(prev => prev.filter(d => !ids.includes(d.id)))
+    try {
+      await Promise.all(ids.map(id =>
+        fetch('/api/deals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      ))
+      showToast(`🗑️ Usunięto ${ids.length} dealów`)
+    } catch { showToast('❌ Błąd usuwania'); loadDeals() }
+  }
+
   const queueCount = deals.filter(d => d.status === 'Do publikacji').length
   const newCount   = deals.filter(d => d.status === 'Nowy').length
 
@@ -498,7 +526,7 @@ export default function App() {
         </div>
       ) : (
         <>
-          {tab === 'deals'     && <DealsTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
+          {tab === 'deals'     && <DealsTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} onDelete={handleDelete} onDeleteAll={handleDeleteAll} />}
           {tab === 'queue'     && <QueueTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
           {tab === 'analytics' && <AnalyticsTab deals={deals} />}
           {tab === 'sources'   && <SourcesTab showToast={showToast} />}
