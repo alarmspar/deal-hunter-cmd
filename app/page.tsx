@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, type Deal } from '../lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import SourcesTab from '../components/SourcesTab'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = ['all', 'Elektronika', 'Podróże', 'Odzież', 'Spożywcze/Drogerie']
@@ -394,7 +395,7 @@ function AnalyticsTab({ deals }: { deals: Deal[] }) {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState<'deals' | 'queue' | 'analytics'>('deals')
+  const [tab, setTab] = useState<'deals' | 'queue' | 'analytics' | 'sources'>('deals')
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -458,6 +459,7 @@ export default function App() {
     { id: 'deals',     label: '🔍 Deals',     count: newCount },
     { id: 'queue',     label: '📋 Kolejka',   count: queueCount },
     { id: 'analytics', label: '📊 Analytics', count: null },
+    { id: 'sources',   label: '📡 Sources',   count: null },
   ]
 
   return (
@@ -487,6 +489,7 @@ export default function App() {
           {tab === 'deals'     && <DealsTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
           {tab === 'queue'     && <QueueTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
           {tab === 'analytics' && <AnalyticsTab deals={deals} />}
+          {tab === 'sources'   && <SourcesTab showToast={showToast} />}
         </>
       )}
 
