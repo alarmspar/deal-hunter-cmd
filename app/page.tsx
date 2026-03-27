@@ -19,7 +19,7 @@ const PIE_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#eab308']
 
 // ── Stars renderer ────────────────────────────────────────────────────────────
 function Stars({ n }: { n: number }) {
-  return <span className="stars">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
+  return <span className="stars">{'★'.repeat(Math.max(0, n))}</span>
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
