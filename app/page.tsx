@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase, type Deal } from '../lib/supabase'
 import { formatDistanceToNow } from 'date-fns'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import SourcesTab from '../components/SourcesTab'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORIES = ['all', 'Elektronika', 'Podróże', 'Odzież', 'Spożywcze/Drogerie']
@@ -18,12 +19,12 @@ const PIE_COLORS = ['#3b82f6', '#f97316', '#22c55e', '#eab308']
 
 // ── Stars renderer ────────────────────────────────────────────────────────────
 function Stars({ n }: { n: number }) {
-  return <span className="stars">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
+  return <span className="stars">{'★'.repeat(Math.max(0, n))}</span>
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
-function Topbar({ scanning, onScan, lastScan, supaConnected }:
-  { scanning: boolean; onScan: () => void; lastScan: string; supaConnected: boolean }) {
+function Topbar({ scanning, onScan, lastScan, supaConnected, onReconnect, darkMode, onToggleTheme }:
+  { scanning: boolean; onScan: () => void; lastScan: string; supaConnected: boolean; onReconnect: () => void; darkMode: boolean; onToggleTheme: () => void }) {
   const [time, setTime] = useState('')
   useEffect(() => {
     const t = setInterval(() => setTime(new Date().toLocaleTimeString('de-DE')), 1000)
@@ -40,12 +41,19 @@ function Topbar({ scanning, onScan, lastScan, supaConnected }:
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: supaConnected ? 'var(--green)' : 'var(--red)' }}>
-          <div className={supaConnected ? 'pulse-dot' : ''} style={{ width: 7, height: 7, borderRadius: '50%', background: supaConnected ? 'var(--green)' : 'var(--red)' }} />
-          supabase {supaConnected ? 'connected' : 'offline'}
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          onClick={supaConnected ? undefined : onReconnect}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: supaConnected ? 'var(--green)' : 'var(--red)', background: 'none', border: 'none', cursor: supaConnected ? 'default' : 'pointer', padding: 0 }}
+          title={supaConnected ? 'Connected' : 'Kliknij żeby połączyć'}
+        >
+          <div className={supaConnected ? 'pulse-dot' : ''} style={{ width: 7, height: 7, borderRadius: '50%', background: supaConnected ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
+          supabase {supaConnected ? 'connected' : 'offline – kliknij'}
+        </button>
         {lastScan && <div style={{ fontSize: 11, color: 'var(--muted)' }}>synced: {lastScan}</div>}
+        <button className="btn btn-ghost" onClick={onToggleTheme} style={{ padding: '5px 8px', fontSize: 13 }} title="Tryb dzienny/nocny">
+          {darkMode ? '☀️' : '🌙'}
+        </button>
         <button className="btn btn-accent" onClick={onScan} disabled={scanning} style={{ opacity: scanning ? 0.7 : 1 }}>
           <span className={scanning ? 'spinning' : ''} style={{ display: 'inline-block' }}>⟳</span>
           {scanning ? 'Scanning...' : 'Scan Now'}
@@ -123,10 +131,12 @@ function ContentModal({ deal, onClose }: { deal: Deal; onClose: () => void }) {
 }
 
 // ── Deals Tab ─────────────────────────────────────────────────────────────────
-function DealsTab({ deals, onStatusChange, onGenerateContent }: {
+function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDeleteAll }: {
   deals: Deal[]
   onStatusChange: (id: string, status: Deal['status']) => void
   onGenerateContent: (deal: Deal) => void
+  onDelete: (id: string) => void
+  onDeleteAll: (ids: string[]) => void
 }) {
   const [catFilter, setCatFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -162,7 +172,15 @@ function DealsTab({ deals, onStatusChange, onGenerateContent }: {
           <option value={4}>4⭐+</option>
           <option value={5}>5⭐ tylko</option>
         </select>
-        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)' }}>{filtered.length} dealów</div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>{filtered.length} dealów</span>
+          {filtered.length > 0 && (
+            <button className="btn btn-red" style={{ fontSize: 11, padding: '3px 10px' }}
+              onClick={() => { if (confirm(`Usunąć wszystkie ${filtered.length} deale?`)) onDeleteAll(filtered.map(d => d.id)) }}>
+              🗑️ Usuń wszystkie
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Table */}
@@ -212,7 +230,7 @@ function DealsTab({ deals, onStatusChange, onGenerateContent }: {
                       <button className="btn btn-blue" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onGenerateContent(deal)} title="Generuj content">✦</button>
                       {deal.status !== 'Do publikacji' && <button className="btn btn-green" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Do publikacji')} title="Do kolejki">+</button>}
                       {deal.status !== 'Opublikowany' && <button className="btn btn-ghost" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Opublikowany')} title="Opublikowany">✓</button>}
-                      {deal.status !== 'Odrzucony' && <button className="btn btn-red" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onStatusChange(deal.id, 'Odrzucony')} title="Odrzuć">✕</button>}
+                      <button className="btn btn-red" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => onDelete(deal.id)} title="Usuń deal">🗑</button>
                     </div>
                   </td>
                 </tr>
@@ -394,7 +412,7 @@ function AnalyticsTab({ deals }: { deals: Deal[] }) {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab, setTab] = useState<'deals' | 'queue' | 'analytics'>('deals')
+  const [tab, setTab] = useState<'deals' | 'queue' | 'analytics' | 'sources'>('deals')
   const [deals, setDeals] = useState<Deal[]>([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -402,6 +420,11 @@ export default function App() {
   const [supaConnected, setSupaConnected] = useState(false)
   const [contentDeal, setContentDeal] = useState<Deal | null>(null)
   const [toast, setToast] = useState('')
+  const [darkMode, setDarkMode] = useState(false)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light')
+  }, [darkMode])
 
   const showToast = (msg: string) => {
     setToast(msg)
@@ -451,6 +474,24 @@ export default function App() {
     } catch { showToast('❌ Błąd zapisu'); loadDeals() }
   }
 
+  const handleDelete = async (id: string) => {
+    setDeals(prev => prev.filter(d => d.id !== id))
+    try {
+      await fetch('/api/deals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      showToast('🗑️ Deal usunięty')
+    } catch { showToast('❌ Błąd usuwania'); loadDeals() }
+  }
+
+  const handleDeleteAll = async (ids: string[]) => {
+    setDeals(prev => prev.filter(d => !ids.includes(d.id)))
+    try {
+      await Promise.all(ids.map(id =>
+        fetch('/api/deals', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+      ))
+      showToast(`🗑️ Usunięto ${ids.length} dealów`)
+    } catch { showToast('❌ Błąd usuwania'); loadDeals() }
+  }
+
   const queueCount = deals.filter(d => d.status === 'Do publikacji').length
   const newCount   = deals.filter(d => d.status === 'Nowy').length
 
@@ -458,11 +499,12 @@ export default function App() {
     { id: 'deals',     label: '🔍 Deals',     count: newCount },
     { id: 'queue',     label: '📋 Kolejka',   count: queueCount },
     { id: 'analytics', label: '📊 Analytics', count: null },
+    { id: 'sources',   label: '📡 Sources',   count: null },
   ]
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <Topbar scanning={scanning} onScan={handleScan} lastScan={lastScan} supaConnected={supaConnected} />
+      <Topbar scanning={scanning} onScan={handleScan} lastScan={lastScan} supaConnected={supaConnected} onReconnect={loadDeals} darkMode={darkMode} onToggleTheme={() => setDarkMode(d => !d)} />
 
       {/* Tabs */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 24px', display: 'flex', alignItems: 'center', gap: 4, height: 40 }}>
@@ -484,9 +526,10 @@ export default function App() {
         </div>
       ) : (
         <>
-          {tab === 'deals'     && <DealsTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
+          {tab === 'deals'     && <DealsTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} onDelete={handleDelete} onDeleteAll={handleDeleteAll} />}
           {tab === 'queue'     && <QueueTab deals={deals} onStatusChange={handleStatusChange} onGenerateContent={setContentDeal} />}
           {tab === 'analytics' && <AnalyticsTab deals={deals} />}
+          {tab === 'sources'   && <SourcesTab showToast={showToast} />}
         </>
       )}
 
