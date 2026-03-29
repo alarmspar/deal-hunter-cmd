@@ -130,6 +130,26 @@ function ContentModal({ deal, onClose }: { deal: Deal; onClose: () => void }) {
   )
 }
 
+// ── Sort helper ───────────────────────────────────────────────────────────────
+type SortKey = 'title' | 'store' | 'category' | 'discount' | 'temperature' | 'stars' | 'status' | 'created_at'
+type SortDir = 'asc' | 'desc'
+
+function SortTh({ label, sortKey, current, dir, onSort }: {
+  label: string; sortKey: SortKey; current: SortKey; dir: SortDir; onSort: (k: SortKey) => void
+}) {
+  const active = current === sortKey
+  return (
+    <th onClick={() => onSort(sortKey)} style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        {label}
+        <span style={{ fontSize: 9, color: active ? 'var(--accent)' : 'var(--border2)', lineHeight: 1 }}>
+          {active ? (dir === 'asc' ? '▲' : '▼') : '⇅'}
+        </span>
+      </span>
+    </th>
+  )
+}
+
 // ── Deals Tab ─────────────────────────────────────────────────────────────────
 function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDeleteAll }: {
   deals: Deal[]
@@ -142,6 +162,13 @@ function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDelete
   const [statusFilter, setStatusFilter] = useState('all')
   const [minStars, setMinStars] = useState(0)
   const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('created_at')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
 
   const filtered = deals.filter(d => {
     if (catFilter !== 'all' && d.category !== catFilter) return false
@@ -149,6 +176,14 @@ function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDelete
     if (d.stars < minStars) return false
     if (search && !d.title.toLowerCase().includes(search.toLowerCase()) && !d.store.toLowerCase().includes(search.toLowerCase())) return false
     return true
+  }).sort((a, b) => {
+    let av: any = a[sortKey] ?? ''
+    let bv: any = b[sortKey] ?? ''
+    if (typeof av === 'string') av = av.toLowerCase()
+    if (typeof bv === 'string') bv = bv.toLowerCase()
+    if (av < bv) return sortDir === 'asc' ? -1 : 1
+    if (av > bv) return sortDir === 'asc' ? 1 : -1
+    return 0
   })
 
   return (
@@ -189,15 +224,15 @@ function DealsTab({ deals, onStatusChange, onGenerateContent, onDelete, onDelete
           <table className="deal-table">
             <thead>
               <tr>
-                <th>Tytuł</th>
-                <th>Sklep</th>
-                <th>Kat.</th>
-                <th>Rabat</th>
-                <th>Temp °</th>
-                <th>Ocena</th>
+                <SortTh label="Tytuł"    sortKey="title"      current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Sklep"    sortKey="store"      current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Kat."     sortKey="category"   current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Rabat"    sortKey="discount"   current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Temp °"   sortKey="temperature" current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Ocena"    sortKey="stars"      current={sortKey} dir={sortDir} onSort={handleSort} />
                 <th>AI note</th>
-                <th>Status</th>
-                <th>Kiedy</th>
+                <SortTh label="Status"   sortKey="status"     current={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortTh label="Kiedy"    sortKey="created_at" current={sortKey} dir={sortDir} onSort={handleSort} />
                 <th>Akcje</th>
               </tr>
             </thead>
