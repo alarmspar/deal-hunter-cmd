@@ -1,5 +1,5 @@
 // PLIK: app/api/scan/route.ts
-// Fixed: Added rate limiting, retry logic, and better error handling
+// Wysyła request do lokalnego Python skanera na localhost:5000
 
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -22,51 +22,8 @@ function checkRateLimit(identifier: string, maxRequests: number = 5, windowMs: n
   return false
 }
 
-async function sendTelegramMessage(token: string, chatId: string, text: string, retries: number = 3): Promise<any> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const resp = await fetch(
-        `https://api.telegram.org/bot${token}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-          }),
-        }
-      )
-      
-      const data = await resp.json()
-      
-      if (data.ok) {
-        return { success: true, data }
-      }
-      
-      // Telegram rate limit: retry after suggested delay
-      if (data.parameters?.retry_after) {
-        const delay = (data.parameters.retry_after + 1) * 1000
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-      
-      throw new Error(data.description || 'Unknown Telegram error')
-    } catch (e: any) {
-      if (i === retries - 1) throw e
-      // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000))
-    }
-  }
-}
-
 export async function POST(req: NextRequest) {
-  const telegramToken = process.env.TELEGRAM_BOT_TOKEN
-  const chatId = process.env.TELEGRAM_CHAT_ID
   const clientIp = req.headers.get('x-forwarded-for') || 'unknown'
-
-  if (!telegramToken || !chatId) {
-    return NextResponse.json({ error: 'Telegram not configured' }, { status: 500 })
-  }
 
   // Rate limit: 5 requests per minute per IP
   if (!checkRateLimit(clientIp, 5, 60000)) {
@@ -77,22 +34,57 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await sendTelegramMessage(telegramToken, chatId, '🔥 skanuj deale mydealz')
-    return NextResponse.json({ 
-      success: true, 
+    // Wysyłaj request do lokalnego skanera
+    const resp = await fetch('http://localhost:5000/api/trigger-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 3000,
+    })
+
+    if (!resp.ok) {
+      throw new Error(`Local scanner returned ${resp.status}`)
+    }
+
+    const data = await resp.json()
+    
+    return NextResponse.json({
+      success: true,
       triggered_at: new Date().toISOString(),
-      message: 'Scan triggered successfully' 
+      message: 'Scan triggered successfully on local server',
+      scan_id: data.scan_id
     })
   } catch (e: any) {
-    console.error('[SCAN API]', e.message)
+    console.error('[SCAN API] Local server error:', e.message)
+    
+    // Jeśli lokalny server nie odpowiada, spróbuj Telegram fallback
+    try {
+      const telegramToken = process.env.TELEGRAM_BOT_TOKEN
+      const chatId = process.env.TELEGRAM_CHAT_ID
+      
+      if (telegramToken && chatId) {
+        await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: '⚠️ Lokalny scanner niedostępny. Kliknij /scan na Telegramie.',
+          }),
+        })
+      }
+    } catch (tg_err) {
+      console.error('[SCAN API] Telegram fallback failed:', tg_err)
+    }
+    
     return NextResponse.json(
-      { error: e.message || 'Failed to trigger scan' },
-      { status: 500 }
+      { error: 'Local server not available. Make sure scanner_server.py is running.' },
+      { status: 503 }
     )
   }
 }
 
 export async function GET(req: NextRequest) {
-  return NextResponse.json({ error: 'Use POST to trigger scan' }, { status: 405 })
+  return NextResponse.json(
+    { error: 'Use POST to trigger scan' },
+    { status: 405 }
+  )
 }
-
