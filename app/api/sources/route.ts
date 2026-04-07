@@ -1,5 +1,3 @@
-// PLIK: app/api/sources/route.ts
-
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -12,8 +10,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from('sources')
     .select('*')
-    .order('category')
-    .order('name')
+    .order('category', { ascending: true })
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
@@ -22,9 +20,19 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const { data, error } = await supabase
     .from('sources')
-    .insert(body)
+    .insert({
+      name:        body.name,
+      url:         body.url,
+      category:    body.category,
+      type:        body.type || 'rss',
+      enabled:     body.enabled ?? true,
+      last_status: body.last_status || 'pending',
+      deal_count:  body.deal_count || 0,
+      notes:       body.notes || null,
+    })
     .select()
     .single()
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
@@ -37,6 +45,7 @@ export async function PATCH(req: NextRequest) {
     .eq('id', id)
     .select()
     .single()
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
